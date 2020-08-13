@@ -27,6 +27,49 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+func probeEnclosureStats(c SpectrumHTTP, registry *prometheus.Registry) bool {
+	var (
+		mPower = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_power_watts",
+				Help: "Current power draw of enclosure in watts",
+			},
+			[]string{"enclosure"},
+		)
+		mTemp = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_temperature",
+				Help: "Current enclosure temperature in celsius",
+			},
+			[]string{"enclosure"},
+		)
+	)
+
+	registry.MustRegister(mPower)
+	registry.MustRegister(mTemp)
+
+	type enclosureStats struct {
+		EnclosureID string `json:"enclosure_id"`
+		StatName    string `json:"stat_name"`
+		StatCurrent int    `json:"stat_current,string"`
+	}
+	var st []enclosureStats
+
+	if err := c.Get("lsenclosurestats", "", &st); err != nil {
+		log.Printf("Error: %v", err)
+		return false
+	}
+
+	for _, s := range st {
+		if s.StatName == "power_w" {
+			mPower.WithLabelValues(s.EnclosureID).Set(float64(s.StatCurrent))
+		} else if s.StatName == "temp_c" {
+			mTemp.WithLabelValues(s.EnclosureID).Set(float64(s.StatCurrent))
+		}
+	}
+	return true
+}
+
 func probe(ctx context.Context, target string, registry *prometheus.Registry, hc *http.Client) (bool, error) {
 	tgt, err := url.Parse(target)
 	if err != nil {
@@ -48,9 +91,7 @@ func probe(ctx context.Context, target string, registry *prometheus.Registry, hc
 	}
 
 	// TODO: Make parallel
-	_ = c
-	log.Printf("TODO")
-	success := true
+	success := probeEnclosureStats(c, registry)
 
 	return success, nil
 }

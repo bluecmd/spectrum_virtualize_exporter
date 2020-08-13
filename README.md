@@ -5,6 +5,7 @@ Prometheus exporter for IBM Spectrum Virtualize (e.g. Storwize V7000).
 # Supported Metrics
 
  * `spectrum_power_watts`
+ * `spectrum_temperature`
 
 ## Usage
 
