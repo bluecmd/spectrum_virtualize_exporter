@@ -31,3 +31,9 @@ and login information in the following format:
 
 The flag `-extra-ca-cert` is useful as it appears that at least V7000 on the
 8.2 version is unable to attach an intermediate CA.
+
+
+## Missing Metrics?
+
+Please [file an issue](https://github.com/bluecmd/spectrim_virtualize_exporter/issues/new) describing what metrics you'd like to see.
+Include as much details as possible please, e.g. how the perfect Prometheus metric would look for your use-case.
