@@ -3,7 +3,7 @@
     "node_id": "1",
     "node_name": "node1",
     "stat_name": "compression_cpu_pc",
-    "stat_current": "0",
+    "stat_current": "24",
     "stat_peak": "0",
     "stat_peak_time": "200814004929"
   },
@@ -19,7 +19,7 @@
     "node_id": "1",
     "node_name": "node1",
     "stat_name": "fc_mb",
-    "stat_current": "0",
+    "stat_current": "1",
     "stat_peak": "0",
     "stat_peak_time": "200814004929"
   },
