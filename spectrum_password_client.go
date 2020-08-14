@@ -77,7 +77,33 @@ func (c *spectrumPasswordClient) String() string {
 }
 
 func newSpectrumPasswordClient(ctx context.Context, tgt url.URL, hc HTTPClient, user string, passwd string) (*spectrumPasswordClient, error) {
-	// TODO: Do login and convert to ephemeral token
-	token := "foobar"
-	return &spectrumPasswordClient{tgt, hc, ctx, token}, nil
+	u := tgt
+	u.Path = "/rest/auth"
+	r, err := http.NewRequestWithContext(ctx, "POST", u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	r.Header.Add("X-Auth-Username", user)
+	r.Header.Add("X-Auth-Password", passwd)
+	resp, err := hc.Do(r)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("Login code was %d, expected 200", resp.StatusCode)
+	}
+
+	type login struct {
+		Token string
+	}
+	var obj login
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return nil, err
+	}
+	return &spectrumPasswordClient{tgt, hc, ctx, obj.Token}, nil
 }

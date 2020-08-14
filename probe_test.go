@@ -60,7 +60,7 @@ func newFakeClient() *fakeClient {
 
 func TestEnclosureStats(t *testing.T) {
 	c := newFakeClient()
-	c.prepare("lsenclosurestats", "testdata/lsenclosurestats.jsonnet")
+	c.prepare("rest/lsenclosurestats", "testdata/lsenclosurestats.jsonnet")
 	r := prometheus.NewPedanticRegistry()
 	if !probeEnclosureStats(c, r) {
 		t.Errorf("probeEnclosureStats() returned non-success")

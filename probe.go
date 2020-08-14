@@ -55,7 +55,7 @@ func probeEnclosureStats(c SpectrumHTTP, registry *prometheus.Registry) bool {
 	}
 	var st []enclosureStats
 
-	if err := c.Get("lsenclosurestats", "", &st); err != nil {
+	if err := c.Get("rest/lsenclosurestats", "", &st); err != nil {
 		log.Printf("Error: %v", err)
 		return false
 	}

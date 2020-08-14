@@ -19,6 +19,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -36,6 +38,7 @@ var (
 	authMapFile    = flag.String("auth-file", "", "file containing the authentication map to use when connecting to a Spectrum Virtualize device")
 	listen         = flag.String("listen", ":9747", "address to listen on")
 	timeoutSeconds = flag.Int("scrape-timeout", 30, "max seconds to allow a scrape to take")
+	extraCAs       = flag.String("extra-ca-cert", "", "file containing extra PEMs to add to the CA trust store")
 
 	authMap = map[string]Auth{}
 )
@@ -65,7 +68,7 @@ func newSpectrumClient(ctx context.Context, tgt url.URL, hc *http.Client) (Spect
 	return nil, fmt.Errorf("Invalid authentication data for %q", tgt.String())
 }
 
-func probeHandler(w http.ResponseWriter, r *http.Request) {
+func probeHandler(w http.ResponseWriter, r *http.Request, tr *http.Transport) {
 	params := r.URL.Query()
 	target := params.Get("target")
 	if target == "" {
@@ -86,7 +89,7 @@ func probeHandler(w http.ResponseWriter, r *http.Request) {
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
 	start := time.Now()
-	success, err := probe(ctx, target, registry, &http.Client{})
+	success, err := probe(ctx, target, registry, &http.Client{Transport: tr})
 	if err != nil {
 		log.Printf("Probe request rejected; error is: %v", err)
 		http.Error(w, fmt.Sprintf("probe: %v", err), http.StatusBadRequest)
@@ -117,10 +120,29 @@ func main() {
 		log.Fatalf("Failed to parse API authentication map file: %v", err)
 	}
 
+	roots, err := x509.SystemCertPool()
+	if err != nil {
+		log.Fatalf("Unable to fetch system CA store: %v", err)
+	}
+	if *extraCAs != "" {
+		certs, err := ioutil.ReadFile(*extraCAs)
+		if err != nil {
+			log.Fatalf("Failed to read extra CA file: %v", err)
+		}
+
+		if ok := roots.AppendCertsFromPEM(certs); !ok {
+			log.Fatalf("Failed to append certs from PEM, unknown error")
+		}
+	}
+	tc := &tls.Config{RootCAs: roots}
+	tr := &http.Transport{TLSClientConfig: tc}
+
 	log.Printf("Loaded %d API credentials", len(authMap))
 
 	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/probe", probeHandler)
+	http.HandleFunc("/probe", func(w http.ResponseWriter, r *http.Request) {
+		probeHandler(w, r, tr)
+	})
 	go http.ListenAndServe(*listen, nil)
 	log.Printf("Spectrum Virtualize exporter running, listening on %q", *listen)
 	select {}
