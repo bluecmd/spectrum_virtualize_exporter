@@ -363,6 +363,7 @@ func probePool(c SpectrumHTTP, registry *prometheus.Registry) bool {
 }
 
 func probeHost(c SpectrumHTTP, registry *prometheus.Registry) bool {
+	// TODO
 	return true
 }
 

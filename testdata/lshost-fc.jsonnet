@@ -5,7 +5,7 @@
   "type": "generic",
   "mask": "1111111111111111111111111111111111111111111111111111111111111111",
   "iogrp_count": "4",
-  "status": "online",
+  "status": "degraded",
   "site_id": "",
   "site_name": "",
   "host_cluster_id": "",
