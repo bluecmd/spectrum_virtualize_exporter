@@ -217,3 +217,179 @@ func TestNodeStats(t *testing.T) {
 		t.Fatalf("metric compare: err %v", err)
 	}
 }
+
+func TestFCPorts(t *testing.T) {
+	c := newFakeClient()
+	c.prepare("rest/lsportfc", "testdata/lsportfc.jsonnet")
+	r := prometheus.NewPedanticRegistry()
+	if !probeFCPorts(c, r) {
+		t.Errorf("probeFCPorts() returned non-success")
+	}
+
+	em := `
+	# HELP spectrum_fc_port_speed_bps Operational speed of port in bits per second
+	# TYPE spectrum_fc_port_speed_bps gauge
+	spectrum_fc_port_speed_bps{adapter_location="2",adapter_port_id="1",node_id="1"} 8e+09
+	spectrum_fc_port_speed_bps{adapter_location="2",adapter_port_id="1",node_id="2"} 8e+09
+	spectrum_fc_port_speed_bps{adapter_location="2",adapter_port_id="2",node_id="1"} 8e+09
+	spectrum_fc_port_speed_bps{adapter_location="2",adapter_port_id="2",node_id="2"} 8e+09
+	spectrum_fc_port_speed_bps{adapter_location="2",adapter_port_id="3",node_id="1"} 0
+	spectrum_fc_port_speed_bps{adapter_location="2",adapter_port_id="3",node_id="2"} 0
+	spectrum_fc_port_speed_bps{adapter_location="2",adapter_port_id="4",node_id="1"} 0
+	spectrum_fc_port_speed_bps{adapter_location="2",adapter_port_id="4",node_id="2"} 0
+	spectrum_fc_port_speed_bps{adapter_location="3",adapter_port_id="1",node_id="1"} 0
+	spectrum_fc_port_speed_bps{adapter_location="3",adapter_port_id="1",node_id="2"} 0
+	spectrum_fc_port_speed_bps{adapter_location="3",adapter_port_id="2",node_id="1"} 0
+	spectrum_fc_port_speed_bps{adapter_location="3",adapter_port_id="2",node_id="2"} 0
+	spectrum_fc_port_speed_bps{adapter_location="3",adapter_port_id="3",node_id="1"} 0
+	spectrum_fc_port_speed_bps{adapter_location="3",adapter_port_id="3",node_id="2"} 0
+	spectrum_fc_port_speed_bps{adapter_location="3",adapter_port_id="4",node_id="1"} 0
+	spectrum_fc_port_speed_bps{adapter_location="3",adapter_port_id="4",node_id="2"} 0
+	# HELP spectrum_fc_port_status Status of Fibre Channel port
+	# TYPE spectrum_fc_port_status gauge
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="1",node_id="1",status="active",wwpn="500507680B218CF8"} 1
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="1",node_id="1",status="inactive_configured",wwpn="500507680B218CF8"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="1",node_id="1",status="inactive_unconfigured",wwpn="500507680B218CF8"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="1",node_id="2",status="active",wwpn="500507680B218CF9"} 1
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="1",node_id="2",status="inactive_configured",wwpn="500507680B218CF9"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="1",node_id="2",status="inactive_unconfigured",wwpn="500507680B218CF9"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="2",node_id="1",status="active",wwpn="500507680B228CF8"} 1
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="2",node_id="1",status="inactive_configured",wwpn="500507680B228CF8"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="2",node_id="1",status="inactive_unconfigured",wwpn="500507680B228CF8"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="2",node_id="2",status="active",wwpn="500507680B228CF9"} 1
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="2",node_id="2",status="inactive_configured",wwpn="500507680B228CF9"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="2",node_id="2",status="inactive_unconfigured",wwpn="500507680B228CF9"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="3",node_id="1",status="active",wwpn="500507680B238CF8"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="3",node_id="1",status="inactive_configured",wwpn="500507680B238CF8"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="3",node_id="1",status="inactive_unconfigured",wwpn="500507680B238CF8"} 1
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="3",node_id="2",status="active",wwpn="500507680B238CF9"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="3",node_id="2",status="inactive_configured",wwpn="500507680B238CF9"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="3",node_id="2",status="inactive_unconfigured",wwpn="500507680B238CF9"} 1
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="4",node_id="1",status="active",wwpn="500507680B248CF8"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="4",node_id="1",status="inactive_configured",wwpn="500507680B248CF8"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="4",node_id="1",status="inactive_unconfigured",wwpn="500507680B248CF8"} 1
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="4",node_id="2",status="active",wwpn="500507680B248CF9"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="4",node_id="2",status="inactive_configured",wwpn="500507680B248CF9"} 0
+	spectrum_fc_port_status{adapter_location="2",adapter_port_id="4",node_id="2",status="inactive_unconfigured",wwpn="500507680B248CF9"} 1
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="1",node_id="1",status="active",wwpn="500507680B318CF8"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="1",node_id="1",status="inactive_configured",wwpn="500507680B318CF8"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="1",node_id="1",status="inactive_unconfigured",wwpn="500507680B318CF8"} 1
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="1",node_id="2",status="active",wwpn="500507680B318CF9"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="1",node_id="2",status="inactive_configured",wwpn="500507680B318CF9"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="1",node_id="2",status="inactive_unconfigured",wwpn="500507680B318CF9"} 1
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="2",node_id="1",status="active",wwpn="500507680B328CF8"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="2",node_id="1",status="inactive_configured",wwpn="500507680B328CF8"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="2",node_id="1",status="inactive_unconfigured",wwpn="500507680B328CF8"} 1
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="2",node_id="2",status="active",wwpn="500507680B328CF9"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="2",node_id="2",status="inactive_configured",wwpn="500507680B328CF9"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="2",node_id="2",status="inactive_unconfigured",wwpn="500507680B328CF9"} 1
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="3",node_id="1",status="active",wwpn="500507680B338CF8"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="3",node_id="1",status="inactive_configured",wwpn="500507680B338CF8"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="3",node_id="1",status="inactive_unconfigured",wwpn="500507680B338CF8"} 1
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="3",node_id="2",status="active",wwpn="500507680B338CF9"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="3",node_id="2",status="inactive_configured",wwpn="500507680B338CF9"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="3",node_id="2",status="inactive_unconfigured",wwpn="500507680B338CF9"} 1
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="4",node_id="1",status="active",wwpn="500507680B348CF8"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="4",node_id="1",status="inactive_configured",wwpn="500507680B348CF8"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="4",node_id="1",status="inactive_unconfigured",wwpn="500507680B348CF8"} 1
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="4",node_id="2",status="active",wwpn="500507680B348CF9"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="4",node_id="2",status="inactive_configured",wwpn="500507680B348CF9"} 0
+	spectrum_fc_port_status{adapter_location="3",adapter_port_id="4",node_id="2",status="inactive_unconfigured",wwpn="500507680B348CF9"} 1
+	`
+
+	if err := testutil.GatherAndCompare(r, strings.NewReader(em)); err != nil {
+		t.Fatalf("metric compare: err %v", err)
+	}
+}
+
+func TestIPPorts(t *testing.T) {
+	c := newFakeClient()
+	c.prepare("rest/lsportip", "testdata/lsportip.jsonnet")
+	r := prometheus.NewPedanticRegistry()
+	if !probeIPPorts(c, r) {
+		t.Errorf("probeIPPorts() returned non-success")
+	}
+
+	em := `
+	# HELP spectrum_ip_port_link_active Whether link is active
+	# TYPE spectrum_ip_port_link_active gauge
+	spectrum_ip_port_link_active{adapter_location="0",adapter_port_id="1",mac="40:f2:e9:70:ad:ea",node_id="1"} 1
+	spectrum_ip_port_link_active{adapter_location="0",adapter_port_id="1",mac="40:f2:e9:70:ae:56",node_id="2"} 1
+	spectrum_ip_port_link_active{adapter_location="0",adapter_port_id="2",mac="40:f2:e9:70:ad:e8",node_id="1"} 0
+	spectrum_ip_port_link_active{adapter_location="0",adapter_port_id="2",mac="40:f2:e9:70:ae:54",node_id="2"} 0
+	spectrum_ip_port_link_active{adapter_location="0",adapter_port_id="3",mac="40:f2:e9:70:ad:eb",node_id="1"} 0
+	spectrum_ip_port_link_active{adapter_location="0",adapter_port_id="3",mac="40:f2:e9:70:ae:57",node_id="2"} 0
+	spectrum_ip_port_link_active{adapter_location="3",adapter_port_id="1",mac="40:f2:e9:e1:8e:cf",node_id="2"} 0
+	spectrum_ip_port_link_active{adapter_location="3",adapter_port_id="1",mac="40:f2:e9:e1:91:47",node_id="1"} 0
+	spectrum_ip_port_link_active{adapter_location="3",adapter_port_id="2",mac="40:f2:e9:e1:8e:ce",node_id="2"} 0
+	spectrum_ip_port_link_active{adapter_location="3",adapter_port_id="2",mac="40:f2:e9:e1:91:46",node_id="1"} 0
+	spectrum_ip_port_link_active{adapter_location="3",adapter_port_id="3",mac="40:f2:e9:e1:8e:cd",node_id="2"} 0
+	spectrum_ip_port_link_active{adapter_location="3",adapter_port_id="3",mac="40:f2:e9:e1:91:45",node_id="1"} 0
+	spectrum_ip_port_link_active{adapter_location="3",adapter_port_id="4",mac="40:f2:e9:e1:8e:cc",node_id="2"} 0
+	spectrum_ip_port_link_active{adapter_location="3",adapter_port_id="4",mac="40:f2:e9:e1:91:44",node_id="1"} 0
+	# HELP spectrum_ip_port_speed_bps Operational speed of port in bits per second
+	# TYPE spectrum_ip_port_speed_bps gauge
+	spectrum_ip_port_speed_bps{adapter_location="0",adapter_port_id="1",node_id="1"} 1e+09
+	spectrum_ip_port_speed_bps{adapter_location="0",adapter_port_id="1",node_id="2"} 1e+09
+	spectrum_ip_port_speed_bps{adapter_location="0",adapter_port_id="2",node_id="1"} 0
+	spectrum_ip_port_speed_bps{adapter_location="0",adapter_port_id="2",node_id="2"} 0
+	spectrum_ip_port_speed_bps{adapter_location="0",adapter_port_id="3",node_id="1"} 0
+	spectrum_ip_port_speed_bps{adapter_location="0",adapter_port_id="3",node_id="2"} 0
+	spectrum_ip_port_speed_bps{adapter_location="3",adapter_port_id="1",node_id="1"} 0
+	spectrum_ip_port_speed_bps{adapter_location="3",adapter_port_id="1",node_id="2"} 0
+	spectrum_ip_port_speed_bps{adapter_location="3",adapter_port_id="2",node_id="1"} 0
+	spectrum_ip_port_speed_bps{adapter_location="3",adapter_port_id="2",node_id="2"} 0
+	spectrum_ip_port_speed_bps{adapter_location="3",adapter_port_id="3",node_id="1"} 0
+	spectrum_ip_port_speed_bps{adapter_location="3",adapter_port_id="3",node_id="2"} 0
+	spectrum_ip_port_speed_bps{adapter_location="3",adapter_port_id="4",node_id="1"} 0
+	spectrum_ip_port_speed_bps{adapter_location="3",adapter_port_id="4",node_id="2"} 0
+	# HELP spectrum_ip_port_state Configuration state of Ethernet/IP port
+	# TYPE spectrum_ip_port_state gauge
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="1",mac="40:f2:e9:70:ad:ea",node_id="1",state="configured"} 1
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="1",mac="40:f2:e9:70:ad:ea",node_id="1",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="1",mac="40:f2:e9:70:ad:ea",node_id="1",state="unconfigured"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="1",mac="40:f2:e9:70:ae:56",node_id="2",state="configured"} 1
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="1",mac="40:f2:e9:70:ae:56",node_id="2",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="1",mac="40:f2:e9:70:ae:56",node_id="2",state="unconfigured"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="2",mac="40:f2:e9:70:ad:e8",node_id="1",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="2",mac="40:f2:e9:70:ad:e8",node_id="1",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="2",mac="40:f2:e9:70:ad:e8",node_id="1",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="2",mac="40:f2:e9:70:ae:54",node_id="2",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="2",mac="40:f2:e9:70:ae:54",node_id="2",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="2",mac="40:f2:e9:70:ae:54",node_id="2",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="3",mac="40:f2:e9:70:ad:eb",node_id="1",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="3",mac="40:f2:e9:70:ad:eb",node_id="1",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="3",mac="40:f2:e9:70:ad:eb",node_id="1",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="3",mac="40:f2:e9:70:ae:57",node_id="2",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="3",mac="40:f2:e9:70:ae:57",node_id="2",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="0",adapter_port_id="3",mac="40:f2:e9:70:ae:57",node_id="2",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="1",mac="40:f2:e9:e1:8e:cf",node_id="2",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="1",mac="40:f2:e9:e1:8e:cf",node_id="2",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="1",mac="40:f2:e9:e1:8e:cf",node_id="2",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="1",mac="40:f2:e9:e1:91:47",node_id="1",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="1",mac="40:f2:e9:e1:91:47",node_id="1",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="1",mac="40:f2:e9:e1:91:47",node_id="1",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="2",mac="40:f2:e9:e1:8e:ce",node_id="2",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="2",mac="40:f2:e9:e1:8e:ce",node_id="2",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="2",mac="40:f2:e9:e1:8e:ce",node_id="2",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="2",mac="40:f2:e9:e1:91:46",node_id="1",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="2",mac="40:f2:e9:e1:91:46",node_id="1",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="2",mac="40:f2:e9:e1:91:46",node_id="1",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="3",mac="40:f2:e9:e1:8e:cd",node_id="2",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="3",mac="40:f2:e9:e1:8e:cd",node_id="2",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="3",mac="40:f2:e9:e1:8e:cd",node_id="2",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="3",mac="40:f2:e9:e1:91:45",node_id="1",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="3",mac="40:f2:e9:e1:91:45",node_id="1",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="3",mac="40:f2:e9:e1:91:45",node_id="1",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="4",mac="40:f2:e9:e1:8e:cc",node_id="2",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="4",mac="40:f2:e9:e1:8e:cc",node_id="2",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="4",mac="40:f2:e9:e1:8e:cc",node_id="2",state="unconfigured"} 1
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="4",mac="40:f2:e9:e1:91:44",node_id="1",state="configured"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="4",mac="40:f2:e9:e1:91:44",node_id="1",state="management_only"} 0
+	spectrum_ip_port_state{adapter_location="3",adapter_port_id="4",mac="40:f2:e9:e1:91:44",node_id="1",state="unconfigured"} 1
+	`
+
+	if err := testutil.GatherAndCompare(r, strings.NewReader(em)); err != nil {
+		t.Fatalf("metric compare: err %v", err)
+	}
+}

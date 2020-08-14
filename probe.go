@@ -23,6 +23,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/alecthomas/units"
 	"github.com/prometheus/client_golang/prometheus"
@@ -360,6 +362,157 @@ func probePool(c SpectrumHTTP, registry *prometheus.Registry) bool {
 	return true
 }
 
+func probeHost(c SpectrumHTTP, registry *prometheus.Registry) bool {
+	return true
+}
+
+func probeFCPorts(c SpectrumHTTP, registry *prometheus.Registry) bool {
+	labels := []string{"node_id", "adapter_location", "adapter_port_id"}
+	var (
+		mStatus = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_fc_port_status",
+				Help: "Status of Fibre Channel port",
+			},
+			append(labels, "wwpn", "status"),
+		)
+		mSpeed = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_fc_port_speed_bps",
+				Help: "Operational speed of port in bits per second",
+			},
+			append(labels),
+		)
+	)
+
+	registry.MustRegister(mStatus)
+	registry.MustRegister(mSpeed)
+
+	type fcPort struct {
+		Type            string
+		PortSpeed       string `json:"port_speed"`
+		Status          string
+		WWPN            string
+		NodeID          string `json:"node_id"`
+		AdapterLocation string `json:"adapter_location"`
+		AdapterPortIID  string `json:"adapter_port_id"`
+	}
+	var st []fcPort
+
+	if err := c.Get("rest/lsportfc", "", &st); err != nil {
+		log.Printf("Error: %v", err)
+		return false
+	}
+
+	for _, s := range st {
+		var online, inunc, inc float64
+		if s.Status == "active" {
+			online = 1.0
+		} else if s.Status == "inactive_unconfigured" {
+			inunc = 1.0
+		} else if s.Status == "inactive_configured" {
+			inc = 1.0
+		}
+		mStatus.WithLabelValues(s.NodeID, s.AdapterLocation, s.AdapterPortIID, s.WWPN, "active").Set(float64(online))
+		mStatus.WithLabelValues(s.NodeID, s.AdapterLocation, s.AdapterPortIID, s.WWPN, "inactive_unconfigured").Set(float64(inunc))
+		mStatus.WithLabelValues(s.NodeID, s.AdapterLocation, s.AdapterPortIID, s.WWPN, "inactive_configured").Set(float64(inc))
+
+		ps := 0
+		if pss := strings.TrimSuffix(s.PortSpeed, "Gb"); pss != s.PortSpeed {
+			x, err := strconv.Atoi(pss)
+			if err == nil {
+				ps = x * 1000 * 1000 * 1000
+			}
+		}
+		mSpeed.WithLabelValues(s.NodeID, s.AdapterLocation, s.AdapterPortIID).Set(float64(ps))
+	}
+	return true
+}
+
+func probeIPPorts(c SpectrumHTTP, registry *prometheus.Registry) bool {
+	labels := []string{"node_id", "adapter_location", "adapter_port_id"}
+	var (
+		mState = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_ip_port_state",
+				Help: "Configuration state of Ethernet/IP port",
+			},
+			append(labels, "mac", "state"),
+		)
+		mActive = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_ip_port_link_active",
+				Help: "Whether link is active",
+			},
+			append(labels, "mac"),
+		)
+		mSpeed = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_ip_port_speed_bps",
+				Help: "Operational speed of port in bits per second",
+			},
+			append(labels),
+		)
+	)
+
+	registry.MustRegister(mState)
+	registry.MustRegister(mActive)
+	registry.MustRegister(mSpeed)
+
+	type ipPort struct {
+		Speed           string
+		State           string
+		LinkState       string `json:"link_state"`
+		MAC             string
+		NodeID          string `json:"node_id"`
+		AdapterLocation string `json:"adapter_location"`
+		AdapterPortIID  string `json:"adapter_port_id"`
+	}
+	var st []ipPort
+
+	if err := c.Get("rest/lsportip", "", &st); err != nil {
+		log.Printf("Error: %v", err)
+		return false
+	}
+
+	for _, s := range st {
+		var con, uncon, mgmt float64
+		if s.State == "configured" {
+			con = 1.0
+		} else if s.State == "unconfigured" {
+			uncon = 1.0
+		} else if s.State == "management_only" {
+			mgmt = 1.0
+		}
+		mState.WithLabelValues(s.NodeID, s.AdapterLocation, s.AdapterPortIID, s.MAC, "configured").Set(float64(con))
+		mState.WithLabelValues(s.NodeID, s.AdapterLocation, s.AdapterPortIID, s.MAC, "unconfigured").Set(float64(uncon))
+		mState.WithLabelValues(s.NodeID, s.AdapterLocation, s.AdapterPortIID, s.MAC, "management_only").Set(float64(mgmt))
+
+		active := 0
+		if s.LinkState == "active" {
+			active = 1
+		}
+		mActive.WithLabelValues(s.NodeID, s.AdapterLocation, s.AdapterPortIID, s.MAC).Set(float64(active))
+
+		ps := 0
+		if pss := strings.TrimSuffix(s.Speed, "Gb/s"); pss != s.Speed {
+			x, err := strconv.Atoi(pss)
+			if err == nil {
+				ps = x * 1000 * 1000 * 1000
+			}
+		}
+		if pss := strings.TrimSuffix(s.Speed, "Mb/s"); pss != s.Speed {
+			x, err := strconv.Atoi(pss)
+			if err == nil {
+				ps = x * 1000 * 1000
+			}
+		}
+		mSpeed.WithLabelValues(s.NodeID, s.AdapterLocation, s.AdapterPortIID).Set(float64(ps))
+	}
+	return true
+	return true
+}
+
 func probe(ctx context.Context, target string, registry *prometheus.Registry, hc *http.Client) (bool, error) {
 	tgt, err := url.Parse(target)
 	if err != nil {
@@ -385,7 +538,10 @@ func probe(ctx context.Context, target string, registry *prometheus.Registry, hc
 		probeEnclosurePSUs(c, registry) &&
 		probePool(c, registry) &&
 		probeDrives(c, registry) &&
-		probeNodeStats(c, registry)
+		probeNodeStats(c, registry) &&
+		probeHost(c, registry) &&
+		probeFCPorts(c, registry) &&
+		probeIPPorts(c, registry)
 
 	return success, nil
 }
