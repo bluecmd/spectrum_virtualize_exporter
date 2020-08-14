@@ -1,5 +1,7 @@
 # spectrum_virtualize_exporter
 
+![Go](https://github.com/bluecmd/spectrum_virtualize_exporter/workflows/Go/badge.svg)
+
 Prometheus exporter for IBM Spectrum Virtualize (e.g. Storwize V7000).
 
 # Supported Metrics
@@ -35,5 +37,5 @@ The flag `-extra-ca-cert` is useful as it appears that at least V7000 on the
 
 ## Missing Metrics?
 
-Please [file an issue](https://github.com/bluecmd/spectrim_virtualize_exporter/issues/new) describing what metrics you'd like to see.
+Please [file an issue](https://github.com/bluecmd/spectrum_virtualize_exporter/issues/new) describing what metrics you'd like to see.
 Include as much details as possible please, e.g. how the perfect Prometheus metric would look for your use-case.
