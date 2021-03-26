@@ -12,4 +12,4 @@ WORKDIR /opt/spectrum_virtualize_exporter
 COPY --from=builder /build/main .
 
 EXPOSE 9747
-CMD ["./main", "-auth-file", "/config/spectrum-monitor.yaml", "-extra-ca-cert", "/config/tls.crt"]
+CMD ["./main", "-auth-file", "~/spectrum-monitor.yaml", "-extra-ca-cert", "~/tls.crt"]
