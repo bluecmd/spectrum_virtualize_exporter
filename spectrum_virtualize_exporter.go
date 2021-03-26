@@ -38,6 +38,7 @@ var (
 	authMapFile    = flag.String("auth-file", "", "file containing the authentication map to use when connecting to a Spectrum Virtualize device")
 	listen         = flag.String("listen", ":9747", "address to listen on")
 	timeoutSeconds = flag.Int("scrape-timeout", 30, "max seconds to allow a scrape to take")
+	insecure       = flag.Bool("insecure", false, "Allow insecure certificates")
 	extraCAs       = flag.String("extra-ca-cert", "", "file containing extra PEMs to add to the CA trust store")
 
 	authMap = map[string]Auth{}
@@ -135,6 +136,9 @@ func main() {
 		}
 	}
 	tc := &tls.Config{RootCAs: roots}
+	if *insecure {
+		tc.InsecureSkipVerify = true
+	}
 	tr := &http.Transport{TLSClientConfig: tc}
 
 	log.Printf("Loaded %d API credentials", len(authMap))
