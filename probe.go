@@ -102,6 +102,48 @@ func probeNodeStats(c SpectrumHTTP, registry *prometheus.Registry) bool {
 			},
 			[]string{"id"},
 		)
+		mMDISKRIO = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_node_mdisk_read_iops",
+				Help: "Current read I/O-per-second to mdisk",
+			},
+			[]string{"id"},
+		)
+		mMDISKWIO = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_node_mdisk_write_iops",
+				Help: "Current write I/O-per-second to mdisk",
+			},
+			[]string{"id"},
+		)
+		mMDISKRMS = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_node_mdisk_read_ms",
+				Help: "Current milliseconds to read from mdisk",
+			},
+			[]string{"id"},
+		)
+		mMDISKWMS = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_node_mdisk_write_ms",
+				Help: "Current milliseconds to write to mdisk",
+			},
+			[]string{"id"},
+		)
+		mMDISKRMB = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_node_mdisk_read_mb",
+				Help: "Current Megabytes-per-second being read from mdisk",
+			},
+			[]string{"id"},
+		)
+		mMDISKWMB = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_node_mdisk_write_mb",
+				Help: "Current Megabytes-per-second being written to mdisk",
+ 		},
+		[]string{"id"},
+		)	
 	)
 
 	registry.MustRegister(mSysCPU)
@@ -114,6 +156,12 @@ func probeNodeStats(c SpectrumHTTP, registry *prometheus.Registry) bool {
 	registry.MustRegister(mISCSIIO)
 	registry.MustRegister(mSASBytes)
 	registry.MustRegister(mSASIO)
+	registry.MustRegister(mMDISKRIO)
+	registry.MustRegister(mMDISKWIO)
+	registry.MustRegister(mMDISKRMS)
+	registry.MustRegister(mMDISKWMS)
+	registry.MustRegister(mMDISKRMB)
+	registry.MustRegister(mMDISKWMB)
 
 	type nodeStat struct {
 		NodeID      string `json:"node_id"`
@@ -143,7 +191,19 @@ func probeNodeStats(c SpectrumHTTP, registry *prometheus.Registry) bool {
 		} else if s.StatName == "sas_mb" {
 			mSASBytes.WithLabelValues(s.NodeID).Set(float64(s.StatCurrent) * 1024 * 1024)
 		} else if s.StatName == "sas_io" {
-			mSASIO.WithLabelValues(s.NodeID).Set(float64(s.StatCurrent))
+			mSASIO.WithLabelValues(s.NodeID).Set(float64(s.StatCurrent))	
+		} else if s.StatName == "mdisk_r_io" {
+			mMDISKRIO.WithLabelValues(s.NodeID).Set(float64(s.StatCurrent))
+		} else if s.StatName == "mdisk_w_io" {
+			mMDISKWIO.WithLabelValues(s.NodeID).Set(float64(s.StatCurrent))
+		} else if s.StatName == "mdisk_r_ms" {
+			mMDISKRMS.WithLabelValues(s.NodeID).Set(float64(s.StatCurrent))
+		} else if s.StatName == "mdisk_w_ms" {
+			mMDISKWMS.WithLabelValues(s.NodeID).Set(float64(s.StatCurrent))
+		} else if s.StatName == "mdisk_r_mb" {
+			mMDISKRMB.WithLabelValues(s.NodeID).Set(float64(s.StatCurrent))
+		} else if s.StatName == "mdisk_w_mb" {
+			mMDISKWMB.WithLabelValues(s.NodeID).Set(float64(s.StatCurrent))
 		} else if s.StatName == "write_cache_pc" {
 			mCacheWrite.WithLabelValues(s.NodeID).Set(float64(s.StatCurrent) / 100.0)
 		} else if s.StatName == "total_cache_pc" {
