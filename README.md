@@ -25,6 +25,12 @@ Prometheus exporter for IBM Spectrum Virtualize (e.g. Storwize V7000).
  * `spectrum_node_system_usage_ratio`
  * `spectrum_node_total_cache_usage_ratio`
  * `spectrum_node_write_cache_usage_ratio`
+ * `spectrum_node_mdisk_read_iops`
+ * `spectrum_node_mdisk_write_iops`
+ * `spectrum_node_mdisk_read_ms`
+ * `spectrum_node_mdisk_write_ms`
+ * `spectrum_node_mdisk_read_mb`
+ * `spectrum_node_mdisk_write_mb`
  * `spectrum_fc_port_speed_bps`
  * `spectrum_fc_port_status`
  * `spectrum_ip_port_link_active`
