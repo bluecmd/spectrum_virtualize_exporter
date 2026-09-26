@@ -1,15 +1,18 @@
-FROM quay.io/prometheus/golang-builder:1.16.2-base as builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /build
 
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN go get -v -t -d ./...
-RUN CGO_ENABLED=0 go build -o main .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags=-s -o main .
 
 FROM scratch
 WORKDIR /opt/spectrum_virtualize_exporter
 
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /build/main .
 
 EXPOSE 9747
-CMD ["./main", "-auth-file", "~/spectrum-monitor.yaml", "-extra-ca-cert", "~/tls.crt"]
+USER 65534
+ENTRYPOINT ["./main"]

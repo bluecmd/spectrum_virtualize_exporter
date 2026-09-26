@@ -15,6 +15,10 @@ Prometheus exporter for IBM Spectrum Virtualize (e.g. Storwize V7000).
  * `spectrum_pool_status`
  * `spectrum_pool_used_bytes`
  * `spectrum_pool_volume_count`
+ * `spectrum_pool_virtual_bytes`
+ * `spectrum_pool_used_before_reduction_bytes`
+ * `spectrum_pool_used_after_reduction_bytes`
+ * `spectrum_pool_reclaimable_bytes`
  * `spectrum_node_compression_usage_ratio`
  * `spectrum_node_fc_bps`
  * `spectrum_node_fc_iops`
@@ -25,6 +29,9 @@ Prometheus exporter for IBM Spectrum Virtualize (e.g. Storwize V7000).
  * `spectrum_node_system_usage_ratio`
  * `spectrum_node_total_cache_usage_ratio`
  * `spectrum_node_write_cache_usage_ratio`
+ * `spectrum_system_iops{layer,op}`
+ * `spectrum_system_bytes_per_second{layer,op}`
+ * `spectrum_system_latency_seconds{layer,op}`
  * `spectrum_fc_port_speed_bps`
  * `spectrum_fc_port_status`
  * `spectrum_ip_port_link_active`
@@ -55,6 +62,35 @@ and login information in the following format:
 
 The flag `-extra-ca-cert` is useful as it appears that at least V7000 on the
 8.2 version is unable to attach an intermediate CA.
+
+`spectrum_system_*` come from `lssystemstats`: `layer` is `vdisk` (I/O from
+hosts to volumes), `mdisk` (from the pools to their managed disks) or `drive`
+(to the physical drives), `op` is `read` or `write`. They are the system's
+latest 5 s sample, so throughput has a resolution of 1 MiB/s and latency
+of 1 ms.
+
+## SSH instead of REST
+
+The REST server has been seen to stop answering after a while (V7000 at 8.4)
+while the CLI over SSH keeps working. Use an `ssh://` target to run the same
+queries as `lsfoo -delim ,` over SSH instead:
+
+```
+"ssh://my-v7000":
+  user: monitor
+  keyfile: /etc/spectrum/id_rsa   # and/or password
+```
+
+```
+./spectrum_virtualize_exporter \
+  -auth-file ~/spectrum-monitor.yaml \
+  -known-hosts ~/spectrum-known-hosts
+```
+
+`-known-hosts` is an OpenSSH `known_hosts` file for the targets (for example
+from `ssh-keyscan my-v7000`); `-insecure` skips host key checking instead.
+The connection is kept open between scrapes and redialled when it breaks.
+Only `ls*` list commands are ever sent. A Monitor role user is enough.
 
 
 ## Missing Metrics?
