@@ -1,0 +1,127 @@
+# Every commit on master is a release: tests, a multi-arch image on ghcr.io
+# and a GitHub release with binaries, all under the next semver tag.
+#
+# The patch version is bumped by default. Put #minor or #major in the commit
+# message (for a squash merge, the PR title or description) to bump those
+# instead.
+name: Release
+
+on:
+  push:
+    branches: [ master ]
+
+# One release at a time, in commit order, so versions never collide.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out code with tags
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+
+    - name: Test
+      run: go test -v ./...
+
+    - name: Next version
+      id: version
+      env:
+        MESSAGE: ${{ github.event.head_commit.message }}
+      run: |
+        # A re-run of a commit that already has a release keeps its version.
+        existing=$(git tag --points-at HEAD --list 'v*.*.*' | sort -V | tail -n1)
+        if [ -n "$existing" ]; then
+          version=$existing
+        else
+          last=$(git tag --list 'v*.*.*' | sort -V | tail -n1)
+          if [ -z "$last" ]; then
+            version=v1.0.0
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            case "$MESSAGE" in
+              *'#major'*) version="v$((major + 1)).0.0" ;;
+              *'#minor'*) version="v$major.$((minor + 1)).0" ;;
+              *)          version="v$major.$minor.$((patch + 1))" ;;
+            esac
+          fi
+        fi
+        IFS=. read -r major minor patch <<< "${version#v}"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "minor=$major.$minor" >> "$GITHUB_OUTPUT"
+        echo "major=$major" >> "$GITHUB_OUTPUT"
+        echo "Releasing $version"
+
+    - name: Build binaries
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+      run: |
+        mkdir dist
+        for arch in amd64 arm64; do
+          CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags=-s \
+            -o dist/spectrum_virtualize_exporter .
+          tar -C dist -czf "dist/spectrum_virtualize_exporter-$VERSION-linux-$arch.tar.gz" spectrum_virtualize_exporter
+          rm dist/spectrum_virtualize_exporter
+        done
+        (cd dist && sha256sum *.tar.gz > SHA256SUMS)
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to ghcr.io
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: |
+          ${{ env.IMAGE }}:${{ steps.version.outputs.version }}
+          ${{ env.IMAGE }}:${{ steps.version.outputs.minor }}
+          ${{ env.IMAGE }}:${{ steps.version.outputs.major }}
+          ${{ env.IMAGE }}:latest
+        labels: |
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.version=${{ steps.version.outputs.version }}
+          org.opencontainers.image.licenses=GPL-3.0-or-later
+          org.opencontainers.image.description=Prometheus exporter for IBM Spectrum Virtualize compatible SANs
+
+    # Last, so a release only exists once its image does. Creates the tag.
+    - name: Create release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        VERSION: ${{ steps.version.outputs.version }}
+      run: |
+        if gh release view "$VERSION" > /dev/null 2>&1; then
+          echo "$VERSION already released"
+          exit 0
+        fi
+        gh release create "$VERSION" dist/* \
+          --target "$GITHUB_SHA" \
+          --title "$VERSION" \
+          --generate-notes \
+          --notes "Image: \`$IMAGE:$VERSION\`"

@@ -38,6 +38,23 @@ Prometheus exporter for IBM Spectrum Virtualize (e.g. Storwize V7000).
  * `spectrum_ip_port_speed_bps`
  * `spectrum_ip_port_state`
 
+## Installing
+
+Every commit on `master` is released under the next semver version:
+
+ * Container image (linux/amd64, linux/arm64):
+   `ghcr.io/bluecmd/spectrum_virtualize_exporter:<version>`, also tagged
+   `<major>.<minor>`, `<major>` and `latest`.
+ * Static binaries for linux/amd64 and linux/arm64 on the
+   [releases page](https://github.com/bluecmd/spectrum_virtualize_exporter/releases).
+
+The image takes the flags as arguments, for example
+`docker run ghcr.io/bluecmd/spectrum_virtualize_exporter:1 -auth-file /etc/spectrum/auth.yaml`.
+
+Commits bump the patch version. Put `#minor` or `#major` in the commit
+message (or the PR title or description, for a squash merge) to bump those
+instead.
+
 ## Usage
 
 Example:
