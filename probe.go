@@ -299,6 +299,10 @@ func probePool(c SpectrumHTTP, registry *prometheus.Registry) bool {
 		mCapacity   = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "spectrum_pool_capacity_bytes", Help: "Capacity of pool in bytes"}, labels)
 		mFree       = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "spectrum_pool_free_bytes", Help: "Free bytes in pool"}, labels)
 		mUsed       = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "spectrum_pool_used_bytes", Help: "Used bytes in pool"}, labels)
+		mVirtual    = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "spectrum_pool_virtual_bytes", Help: "Total provisioned size of the volumes in pool"}, labels)
+		mBefore     = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "spectrum_pool_used_before_reduction_bytes", Help: "Data written to a data reduction pool, before compression and deduplication"}, labels)
+		mAfter      = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "spectrum_pool_used_after_reduction_bytes", Help: "Data stored in a data reduction pool, after compression and deduplication"}, labels)
+		mReclaim    = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "spectrum_pool_reclaimable_bytes", Help: "Freed space in a data reduction pool not yet reclaimed by garbage collection"}, labels)
 	)
 
 	registry.MustRegister(mStatus)
@@ -306,6 +310,10 @@ func probePool(c SpectrumHTTP, registry *prometheus.Registry) bool {
 	registry.MustRegister(mCapacity)
 	registry.MustRegister(mFree)
 	registry.MustRegister(mUsed)
+	registry.MustRegister(mVirtual)
+	registry.MustRegister(mBefore)
+	registry.MustRegister(mAfter)
+	registry.MustRegister(mReclaim)
 
 	type pool struct {
 		ID                  string
@@ -318,6 +326,9 @@ func probePool(c SpectrumHTTP, registry *prometheus.Registry) bool {
 		UsedCapacity        string `json:"used_capacity"`
 		RealCapacity        string `json:"real_capacity"`
 		ReclaimableCapacity string `json:"reclaimable_capacity"`
+		DataReduction       string `json:"data_reduction"`
+		UsedBeforeReduction string `json:"used_capacity_before_reduction"`
+		UsedAfterReduction  string `json:"used_capacity_after_reduction"`
 	}
 	var st []pool
 
@@ -358,6 +369,91 @@ func probePool(c SpectrumHTTP, registry *prometheus.Registry) bool {
 		} else {
 			mUsed.WithLabelValues(s.ID, s.Name).Set(float64(used))
 		}
+
+		setBytes := func(m *prometheus.GaugeVec, v string) {
+			b, err := units.ParseBase2Bytes(v)
+			if err != nil {
+				log.Printf("Failed to parse %q: %v", v, err)
+				return
+			}
+			m.WithLabelValues(s.ID, s.Name).Set(float64(b))
+		}
+		setBytes(mVirtual, s.VirtualCapacity)
+		// Only data reduction pools have these; firmware before 8.1.2
+		// does not have the columns at all.
+		if s.DataReduction == "yes" {
+			setBytes(mBefore, s.UsedBeforeReduction)
+			setBytes(mAfter, s.UsedAfterReduction)
+			setBytes(mReclaim, s.ReclaimableCapacity)
+		}
+	}
+	return true
+}
+
+func probeSystemStats(c SpectrumHTTP, registry *prometheus.Registry) bool {
+	// Host-facing volume I/O (vdisk), I/O to the managed disks behind the
+	// pools (mdisk) and to the physical drives (drive), split by read and
+	// write. The counters are the system's last sample, taken every 5 s.
+	labels := []string{"layer", "op"}
+	var (
+		mIO = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_system_iops",
+				Help: "I/O operations per second",
+			},
+			labels,
+		)
+		mBytes = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_system_bytes_per_second",
+				Help: "Throughput in bytes per second",
+			},
+			labels,
+		)
+		mLatency = prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "spectrum_system_latency_seconds",
+				Help: "Average response time per operation in seconds",
+			},
+			labels,
+		)
+	)
+
+	registry.MustRegister(mIO)
+	registry.MustRegister(mBytes)
+	registry.MustRegister(mLatency)
+
+	type systemStat struct {
+		StatName    string `json:"stat_name"`
+		StatCurrent int    `json:"stat_current,string"`
+	}
+	var st []systemStat
+
+	if err := c.Get("rest/lssystemstats", "", &st); err != nil {
+		log.Printf("Error: %v", err)
+		return false
+	}
+
+	ops := map[string]string{"r": "read", "w": "write"}
+	for _, s := range st {
+		// e.g. vdisk_r_io, drive_w_ms
+		p := strings.Split(s.StatName, "_")
+		if len(p) != 3 {
+			continue
+		}
+		layer, op, unit := p[0], ops[p[1]], p[2]
+		if op == "" || (layer != "vdisk" && layer != "mdisk" && layer != "drive") {
+			continue
+		}
+		v := float64(s.StatCurrent)
+		switch unit {
+		case "io":
+			mIO.WithLabelValues(layer, op).Set(v)
+		case "mb":
+			mBytes.WithLabelValues(layer, op).Set(v * 1024 * 1024)
+		case "ms":
+			mLatency.WithLabelValues(layer, op).Set(v / 1000)
+		}
 	}
 	return true
 }
@@ -382,7 +478,7 @@ func probeFCPorts(c SpectrumHTTP, registry *prometheus.Registry) bool {
 				Name: "spectrum_fc_port_speed_bps",
 				Help: "Operational speed of port in bits per second",
 			},
-			append(labels),
+			labels,
 		)
 	)
 
@@ -452,7 +548,7 @@ func probeIPPorts(c SpectrumHTTP, registry *prometheus.Registry) bool {
 				Name: "spectrum_ip_port_speed_bps",
 				Help: "Operational speed of port in bits per second",
 			},
-			append(labels),
+			labels,
 		)
 	)
 
@@ -511,7 +607,6 @@ func probeIPPorts(c SpectrumHTTP, registry *prometheus.Registry) bool {
 		mSpeed.WithLabelValues(s.NodeID, s.AdapterLocation, s.AdapterPortIID).Set(float64(ps))
 	}
 	return true
-	return true
 }
 
 func probe(ctx context.Context, target string, registry *prometheus.Registry, hc *http.Client) (bool, error) {
@@ -520,7 +615,7 @@ func probe(ctx context.Context, target string, registry *prometheus.Registry, hc
 		return false, fmt.Errorf("url.Parse failed: %v", err)
 	}
 
-	if tgt.Scheme != "https" && tgt.Scheme != "http" {
+	if tgt.Scheme != "https" && tgt.Scheme != "http" && tgt.Scheme != "ssh" {
 		return false, fmt.Errorf("Unsupported scheme %q", tgt.Scheme)
 	}
 
@@ -540,6 +635,7 @@ func probe(ctx context.Context, target string, registry *prometheus.Registry, hc
 		probePool(c, registry) &&
 		probeDrives(c, registry) &&
 		probeNodeStats(c, registry) &&
+		probeSystemStats(c, registry) &&
 		probeHost(c, registry) &&
 		probeFCPorts(c, registry) &&
 		probeIPPorts(c, registry)

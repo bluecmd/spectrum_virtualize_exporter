@@ -31,6 +31,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v2"
 )
 
@@ -40,13 +41,18 @@ var (
 	timeoutSeconds = flag.Int("scrape-timeout", 30, "max seconds to allow a scrape to take")
 	insecure       = flag.Bool("insecure", false, "Allow insecure certificates")
 	extraCAs       = flag.String("extra-ca-cert", "", "file containing extra PEMs to add to the CA trust store")
+	knownHosts     = flag.String("known-hosts", "", "known_hosts file to verify ssh:// targets against (required unless -insecure)")
 
 	authMap = map[string]Auth{}
+
+	sshHostKeys ssh.HostKeyCallback
 )
 
 type Auth struct {
 	User     string
 	Password string
+	// Private key for ssh:// targets, used before the password if both are set.
+	KeyFile string `yaml:"keyfile"`
 }
 
 type SpectrumHTTP interface {
@@ -57,6 +63,13 @@ func newSpectrumClient(ctx context.Context, tgt url.URL, hc *http.Client) (Spect
 	auth, ok := authMap[tgt.String()]
 	if !ok {
 		return nil, fmt.Errorf("No API authentication registered for %q", tgt.String())
+	}
+
+	if tgt.Scheme == "ssh" {
+		if sshHostKeys == nil {
+			return nil, fmt.Errorf("ssh:// target %q needs -known-hosts or -insecure", tgt.String())
+		}
+		return newSpectrumSSHClient(ctx, tgt, auth, sshHostKeys)
 	}
 
 	if auth.User != "" && auth.Password != "" {
@@ -140,6 +153,11 @@ func main() {
 		tc.InsecureSkipVerify = true
 	}
 	tr := &http.Transport{TLSClientConfig: tc}
+
+	sshHostKeys, err = sshHostKeyCallback(*knownHosts, *insecure)
+	if err != nil {
+		log.Fatalf("Failed to read known hosts: %v", err)
+	}
 
 	log.Printf("Loaded %d API credentials", len(authMap))
 

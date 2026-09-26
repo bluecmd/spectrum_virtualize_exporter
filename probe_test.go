@@ -145,13 +145,25 @@ func TestPool(t *testing.T) {
 	# HELP spectrum_pool_free_bytes Free bytes in pool
 	# TYPE spectrum_pool_free_bytes gauge
 	spectrum_pool_free_bytes{id="0",name="Pool0"} 9.829633952317e+12
+	# HELP spectrum_pool_reclaimable_bytes Freed space in a data reduction pool not yet reclaimed by garbage collection
+	# TYPE spectrum_pool_reclaimable_bytes gauge
+	spectrum_pool_reclaimable_bytes{id="0",name="Pool0"} 2.818572288e+10
 	# HELP spectrum_pool_status Status of pool
 	# TYPE spectrum_pool_status gauge
 	spectrum_pool_status{id="0",name="Pool0",status="offline"} 0
 	spectrum_pool_status{id="0",name="Pool0",status="online"} 1
+	# HELP spectrum_pool_used_after_reduction_bytes Data stored in a data reduction pool, after compression and deduplication
+	# TYPE spectrum_pool_used_after_reduction_bytes gauge
+	spectrum_pool_used_after_reduction_bytes{id="0",name="Pool0"} 3.72577675509e+11
+	# HELP spectrum_pool_used_before_reduction_bytes Data written to a data reduction pool, before compression and deduplication
+	# TYPE spectrum_pool_used_before_reduction_bytes gauge
+	spectrum_pool_used_before_reduction_bytes{id="0",name="Pool0"} 4.67281704386e+11
 	# HELP spectrum_pool_used_bytes Used bytes in pool
 	# TYPE spectrum_pool_used_bytes gauge
 	spectrum_pool_used_bytes{id="0",name="Pool0"} 5.86252298485e+11
+	# HELP spectrum_pool_virtual_bytes Total provisioned size of the volumes in pool
+	# TYPE spectrum_pool_virtual_bytes gauge
+	spectrum_pool_virtual_bytes{id="0",name="Pool0"} 5.926367673712e+12
 	# HELP spectrum_pool_volume_count Number of volumes associated with pool
 	# TYPE spectrum_pool_volume_count gauge
 	spectrum_pool_volume_count{id="0",name="Pool0"} 44
